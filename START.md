@@ -1,0 +1,6 @@
+- start jobs
+  - jobs/jo-auto-buy-server
+  - jobs/jo-auto-buy-hacknet
+- Buy tor browser from Alpha net.
+  - connect darkweb
+  - buy all the programs.
