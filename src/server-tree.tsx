@@ -94,12 +94,6 @@ const PATH_NODE = "│"
 export async function main(ns: NS) {
   ns.disableLog("ALL")
   // Check if there exists a script tag with id tailwindcss, if not, add it.
-  if (!doc.getElementById("tailwindcss")) {
-    const script = doc.createElement("script")
-    script.id = "tailwindcss"
-    script.src = "https://cdn.tailwindcss.com"
-    doc.head.appendChild(script)
-  }
 
   const allServers = getServerTree(ns)
   const player = ns.getPlayer()

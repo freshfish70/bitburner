@@ -3,10 +3,13 @@ import { TOR_ROUTER_COST } from "./lib/constants/shop"
 import { autoHacknet } from "./lib/hacknet/auto-hacknet"
 import { autoBuyServer } from "./lib/servers/auto-buy-server"
 import { recursiveHack } from "./lib/servers/recursive-hack"
+import { initUI } from "./lib/ui/init"
 
 const RUN = true
 export async function main(ns: NS) {
   let iteration = 1
+
+  initUI()
 
   ns.tail()
   ns.disableLog("ALL")

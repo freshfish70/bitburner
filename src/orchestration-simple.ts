@@ -1,6 +1,6 @@
 import { NS } from "@ns"
 
-const TARGET = "iron-gym"
+const TARGET = "omega-net"
 const WORK_SERVERS = ["home"]
 
 const WEAKEN_RAM = 1.75
@@ -236,64 +236,3 @@ export async function main(ns: NS): Promise<void> {
     await ns.sleep(1000)
   }
 }
-// const targetServer = ns.getServer(target)
-
-// await weakenAnalyze(ns, targetServer.hostname)
-// await growAnalyzis(ns, targetServer.hostname)
-// await hackAnalyze(ns, targetServer)
-
-// ns.getServer(target)
-
-// ns.print(JSON.stringify(getTargetStats(ns, target), null, 2))
-
-// seclevel(ns, target)
-// moneyLevel(ns, target)
-//
-// const server = ns.getServer(target)
-// server.hackDifficulty
-//
-// const hackTime = getHackTime(ns, target)
-// const weakenTime = getWeakenTime(ns, target)
-// const growTime = getGrowTime(ns, target)
-//
-// const offset = 100
-// const growDelay = weakenTime - growTime + offset + 10
-// const hackDelay = weakenTime - hackTime + 20
-//
-// ns.weakenAnalyze(2, 1)
-//
-// const a = [
-//   {
-//     script: "x-hack.js",
-//     delay: hackDelay,
-//     threads: 1,
-//     pid: 1,
-//   },
-//   {
-//     script: "x-weaken.js",
-//     threads: 4,
-//     delay: offset,
-//     pid: 2,
-//   },
-//   {
-//     script: "x-grow.js",
-//     threads: 2,
-//     delay: growDelay,
-//     pid: 3,
-//   },
-//   {
-//     script: "x-weaken.js",
-//     threads: 4,
-//     delay: offset * 3 + 30,
-//     pid: 4,
-//   },
-// ]
-//
-// ns.tprint(JSON.stringify(i(ns, target), null, 2))
-// for (let index = 0; index < a.length; index++) {
-//   const element = a[index]
-//   ns.exec(element.script, "home", element.threads, element.delay, target, element.pid)
-// }
-// await ns.sleep(a.reduce((acc, cur) => acc + cur.delay, 0) + 3000)
-// ns.tprint("DONE")
-// ns.tprint(JSON.stringify(i(ns, target), null, 2))
