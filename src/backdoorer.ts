@@ -6,7 +6,7 @@ import { DOM } from "./lib/ui/helpers"
 const terminal = DOM.getElementById("terminal")
 const terminalInsert = (html: string) =>
   DOM.getElementById("terminal")?.insertAdjacentHTML("beforeend", `<li>${html}</li>`)
-const terminalInput = DOM.getElementById("terminal-input")! as HTMLInputElement
+const terminalInput = DOM.getElementById("terminal-input") as HTMLInputElement
 const terminalEventHandlerKey = Object.keys(terminalInput)[1]
 
 const setNavCommand = async (inputValue: string) => {
@@ -62,19 +62,13 @@ export async function main(ns: NS) {
         const hs = server.requiredHackingSkill || 9999999
 
         if (hs < ns.getPlayer().skills.hacking && !IS_MY_MACHINE(host) && !bdInstalled) {
-          const target = `${newPath};backdoor`
-          console.log(`Found target: ${target}`)
-          return target
+          return `${newPath};backdoor`
         }
 
-        // const files = ns.ls(host)
-        // const contracts = files.filter((x) => x.endsWith(".cct")).length
-
         if (connections) {
-          console.log(`Recursing into ${host}`)
-          const r = findServerToBackdoor(connections, level + 1, newPath)
-          if (r) {
-            return r
+          const path = findServerToBackdoor(connections, level + 1, newPath)
+          if (path) {
+            return path
           }
         }
       }
@@ -84,8 +78,7 @@ export async function main(ns: NS) {
     const connectionString = findServerToBackdoor(servers)
     if (connectionString) {
       target = connectionString.split(" ").pop()?.replace(";backdoor", "") ?? ""
-      console.log(`Chose: : ` + target)
-
+      terminalInsert(connectionString)
       await setNavCommand(connectionString)
     }
 

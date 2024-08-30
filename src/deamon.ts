@@ -7,8 +7,6 @@ import { initUI } from "./lib/ui/init"
 
 const RUN = true
 export async function main(ns: NS) {
-  let iteration = 1
-
   initUI()
 
   ns.tail()
@@ -18,7 +16,6 @@ export async function main(ns: NS) {
 
   while (RUN) {
     ns.clearLog()
-    ns.print(`Iteration ${iteration}`)
 
     const PLAYER = ns.getPlayer()
     const CURRENT_HACK_LEVEL = PLAYER.skills.hacking
@@ -44,14 +41,12 @@ export async function main(ns: NS) {
       await autoHacknet(ns)
     }
 
-    ns.print("Sleeping for 10 seconds")
-    await ns.sleep(10000)
+    ns.print("Waiting for next iteration...")
+    await ns.sleep(2000)
 
     if (CURRENT_HACK_LEVEL !== LAST_HACK_LEVEL) {
       ns.print(`Player hacking level changed from ${LAST_HACK_LEVEL} to ${CURRENT_HACK_LEVEL}`)
       LAST_HACK_LEVEL = CURRENT_HACK_LEVEL
     }
-
-    iteration += 1
   }
 }

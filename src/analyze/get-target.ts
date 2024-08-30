@@ -9,6 +9,7 @@ export async function main(ns: NS): Promise<void> {
 
   ns.tail()
   ns.disableLog("ALL")
+  ns.clearLog()
 
   const possibleTargets = []
   for (const server of list_servers(ns)) {
@@ -16,15 +17,40 @@ export async function main(ns: NS): Promise<void> {
 
     const serverLevel = ns.getServerRequiredHackingLevel(server)
     const targetLevel = currentLevel / 2
-    if (serverLevel > targetLevel) continue
     const money = ns.getServerMaxMoney(server)
-    possibleTargets.push({ server, serverLevel, money })
+    if (serverLevel > targetLevel || money <= 10) continue
+    const minSec = ns.getServerMinSecurityLevel(server)
+    possibleTargets.push({ server, serverLevel, money, minSec })
   }
 
   // sort by money
   possibleTargets.sort((a, b) => b.money - a.money)
 
-  for (const { server, serverLevel } of possibleTargets) {
-    ns.print(`${server} => ${serverLevel}  $${ns.formatNumber(ns.getServerMaxMoney(server))}`)
+  for (const { server, serverLevel, money, minSec } of possibleTargets) {
+    const maxMoney = ns.formatNumber(money)
+    const hackLevel = serverLevel.toString().padStart(4, " ")
+    const msec = minSec.toString().padStart(2, " ")
+
+    ns.print(`${server.padEnd(25, " ")}: [${hackLevel}]  ${msec}  =>  $${maxMoney}`)
   }
+}
+
+export const getSingleTarget = (ns: NS): string => {
+  const currentLevel = ns.getHackingLevel()
+
+  const possibleTargets = []
+  for (const server of list_servers(ns)) {
+    if (IS_MY_MACHINE(server)) continue
+
+    const serverLevel = ns.getServerRequiredHackingLevel(server)
+    const targetLevel = currentLevel / 2
+    const money = ns.getServerMaxMoney(server)
+    const minSec = ns.getServerMinSecurityLevel(server)
+
+    if (minSec > 20 || serverLevel > targetLevel || money <= 10) continue
+    possibleTargets.push({ server, serverLevel, money, minSec })
+  }
+
+  // sort by money
+  return possibleTargets.sort((a, b) => b.money - a.money)[0]?.server
 }

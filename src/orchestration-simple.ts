@@ -1,6 +1,7 @@
 import { NS } from "@ns"
+import { getSingleTarget } from "./analyze/get-target"
 
-const TARGET = "omega-net"
+const TARGET = "clarkinc"
 const WORK_SERVERS = ["home"]
 
 const WEAKEN_RAM = 1.75
@@ -34,6 +35,7 @@ const loopWork = (ns: NS) => {
   } else {
     ns.print(`[${iterations}] | Done`)
     ns.print(`.`)
+    iterations = -1
   }
   loaderIndex = (loaderIndex + 1) % loader.length
   iterations--
@@ -46,8 +48,9 @@ const startWork = (_ms: number, _pid: number, _host: string, _task: string) => {
   task = _task
 }
 
+let OLD_TARGET = ""
+
 export async function main(ns: NS): Promise<void> {
-  // const target = "silver-helix"
   ns.tail()
   ns.disableLog("ALL")
   ns.clearLog()
@@ -57,181 +60,185 @@ export async function main(ns: NS): Promise<void> {
     ns.print(msg)
   }
 
-  const PLAYER_HACK_LEVEL = ns.getHackingLevel()
-
-  const TARGETS = [TARGET]
-
   const T = true
   while (T) {
     ns.clearLog()
-    for (const node of TARGETS) {
-      log(`Analyzing ${node}`)
+    const node = TARGET
+    // getSingleTarget(ns)
 
-      const NODE_CURRENT_MONEY = Math.max(ns.getServerMoneyAvailable(node), 1)
-      const NODE_MAX_MONEY = ns.getServerMaxMoney(node)
-      const NODE_MONEY_DIFFERENCE = NODE_MAX_MONEY - NODE_CURRENT_MONEY
+    if (!node) {
+      ns.print("No target found")
+      await ns.sleep(2000)
+      continue
+    }
 
-      const NODE_MIN_SECURITY = ns.getServerMinSecurityLevel(node)
-      const NODE_CURRENT_SECURITY = ns.getServerSecurityLevel(node)
-      const NODE_SECURITY_DIFFERENCE = NODE_CURRENT_SECURITY - NODE_MIN_SECURITY
+    if (node !== OLD_TARGET) {
+      OLD_TARGET = node
+      ns.print(`Target: ${node}`)
+      // Kills weaken and grow scripts when we change target, hack can finish.
+      ns.scriptKill("x-weaken.js", "home")
+      ns.scriptKill("x-grow.js", "home")
+    }
 
-      const HACK_TIME = Math.ceil(ns.getHackTime(node))
-      const GROW_TIME = Math.ceil(ns.getGrowTime(node))
-      const WEAKEN_TIME = Math.ceil(ns.getWeakenTime(node))
+    const NODE_CURRENT_MONEY = Math.max(ns.getServerMoneyAvailable(node), 1)
+    const NODE_MAX_MONEY = ns.getServerMaxMoney(node)
 
-      for (const WORK_SERVER of WORK_SERVERS) {
-        const WORKER = ns.getServer(WORK_SERVER)
-        const WORKER_RAM = WORKER.maxRam
-        const WORKER_USED_RAM = WORKER.ramUsed
+    const NODE_MIN_SECURITY = ns.getServerMinSecurityLevel(node)
+    const NODE_CURRENT_SECURITY = ns.getServerSecurityLevel(node)
+    const NODE_SECURITY_DIFFERENCE = NODE_CURRENT_SECURITY - NODE_MIN_SECURITY
 
-        const WORKER_FREE_RAM = WORKER_RAM - WORKER_USED_RAM
-        const WORKER_CPU_CORES = WORKER.cpuCores || 1
+    const HACK_TIME = Math.ceil(ns.getHackTime(node))
+    const GROW_TIME = Math.ceil(ns.getGrowTime(node))
+    const WEAKEN_TIME = Math.ceil(ns.getWeakenTime(node))
 
-        const MAX_HACK_THREADS = Math.floor(WORKER_FREE_RAM / HACK_RAM)
-        const MAX_GROW_THREADS = Math.floor(WORKER_FREE_RAM / GROW_RAM)
-        const MAX_WEAKEN_THREADS = Math.floor(WORKER_FREE_RAM / WEAKEN_RAM)
+    for (const WORK_SERVER of WORK_SERVERS) {
+      const WORKER = ns.getServer(WORK_SERVER)
+      const WORKER_RAM = WORKER.maxRam
+      const WORKER_USED_RAM = WORKER.ramUsed
 
-        log(`= WORKER ===========================================`)
-        log(` Hack [T]        : ${MAX_HACK_THREADS}`)
-        log(` Grow [T]        : ${MAX_GROW_THREADS}`)
-        log(` Weaken [T]      : ${MAX_WEAKEN_THREADS}`)
-        log(` CPU Cores       : ${WORKER_CPU_CORES}`)
-        log(`= NODE =============================================`)
-        log(` Security        : ${NODE_CURRENT_SECURITY}`)
-        log(` Money           : ${ns.formatNumber(NODE_CURRENT_MONEY)}`)
-        log(` Max Money       : ${ns.formatNumber(NODE_MAX_MONEY)}`)
+      const WORKER_FREE_RAM = WORKER_RAM - WORKER_USED_RAM
+      const WORKER_CPU_CORES = WORKER.cpuCores || 1
 
-        log(`= WEAKEN ===========================================`)
-        const WEAKEN_REDUCTION = ns.weakenAnalyze(1, WORKER_CPU_CORES)
-        const WEAKEN_THREADS_TO_USE = getThreadsToUse(NODE_SECURITY_DIFFERENCE, WEAKEN_REDUCTION, MAX_WEAKEN_THREADS)
-        const CALCULATED_SECURITY_LEVEL = WEAKEN_REDUCTION * WEAKEN_THREADS_TO_USE
-        const POST_SECURITY = Math.ceil(NODE_CURRENT_SECURITY - CALCULATED_SECURITY_LEVEL)
-        log(` Weaken Time     : ${WEAKEN_TIME}`)
-        log(` Weaken Threads  : ${WEAKEN_THREADS_TO_USE}`)
-        log(` Min Security    : ${NODE_MIN_SECURITY}`)
-        log(` Post Security   : ${POST_SECURITY}`)
+      const MAX_HACK_THREADS = Math.floor(WORKER_FREE_RAM / HACK_RAM)
+      const MAX_GROW_THREADS = Math.floor(WORKER_FREE_RAM / GROW_RAM)
+      const MAX_WEAKEN_THREADS = Math.floor(WORKER_FREE_RAM / WEAKEN_RAM)
 
-        log(`= GROW =============================================`)
-        const GROWTH_MULTIPLIER = NODE_MAX_MONEY / NODE_CURRENT_MONEY
-        const REQUIRED_GROWTH_THREADS = Math.ceil(ns.growthAnalyze(node, GROWTH_MULTIPLIER, WORKER_CPU_CORES))
-        const GROW_THREADS_TO_USE = Math.min(REQUIRED_GROWTH_THREADS, MAX_GROW_THREADS)
-        log(` Multiplier      : ${GROWTH_MULTIPLIER}`)
-        log(` Grow Time       : ${GROW_TIME}`)
-        log(` Grow calc       : ${REQUIRED_GROWTH_THREADS}`)
-        log(` Grow Threads    : ${GROW_THREADS_TO_USE}`)
-        log(` Max money       : ${ns.formatNumber(NODE_MAX_MONEY)}`)
-        log(` Post Money      : ${ns.formatNumber(NODE_CURRENT_MONEY * GROWTH_MULTIPLIER)}`)
+      log(`= WORKER ===========================================`)
+      log(` Hack [T]        : ${MAX_HACK_THREADS}`)
+      log(` Grow [T]        : ${MAX_GROW_THREADS}`)
+      log(` Weaken [T]      : ${MAX_WEAKEN_THREADS}`)
+      log(` CPU Cores       : ${WORKER_CPU_CORES}`)
+      log(`= NODE =============================================`)
+      log(` Security        : ${NODE_CURRENT_SECURITY}`)
+      log(` Money           : ${ns.formatNumber(NODE_CURRENT_MONEY)}`)
+      log(` Max Money       : ${ns.formatNumber(NODE_MAX_MONEY)}`)
 
-        const MONEY_REMOVE_PERCENTAGE = ns.hackAnalyze(node)
-        const P = 0.9
+      log(`= WEAKEN ===========================================`)
+      const WEAKEN_REDUCTION = ns.weakenAnalyze(1, WORKER_CPU_CORES)
+      const WEAKEN_THREADS_TO_USE = getThreadsToUse(NODE_SECURITY_DIFFERENCE, WEAKEN_REDUCTION, MAX_WEAKEN_THREADS)
+      const CALCULATED_SECURITY_LEVEL = WEAKEN_REDUCTION * WEAKEN_THREADS_TO_USE
+      const POST_SECURITY = Math.ceil(NODE_CURRENT_SECURITY - CALCULATED_SECURITY_LEVEL)
+      log(` Weaken Time     : ${WEAKEN_TIME}`)
+      log(` Weaken Threads  : ${WEAKEN_THREADS_TO_USE}`)
+      log(` Min Security    : ${NODE_MIN_SECURITY}`)
+      log(` Post Security   : ${POST_SECURITY}`)
 
-        const MAX_PERCENTAGE = MONEY_REMOVE_PERCENTAGE * MAX_HACK_THREADS
-        const HACK_THREADS_TO_USE = Math.min(Math.ceil(P / MONEY_REMOVE_PERCENTAGE), MAX_HACK_THREADS)
+      log(`= GROW =============================================`)
+      const GROWTH_MULTIPLIER = NODE_MAX_MONEY / NODE_CURRENT_MONEY
+      const REQUIRED_GROWTH_THREADS = Math.ceil(ns.growthAnalyze(node, GROWTH_MULTIPLIER, WORKER_CPU_CORES))
+      const GROW_THREADS_TO_USE = Math.min(REQUIRED_GROWTH_THREADS, MAX_GROW_THREADS)
+      log(` Multiplier      : ${GROWTH_MULTIPLIER}`)
+      log(` Grow Time       : ${GROW_TIME}`)
+      log(` Grow calc       : ${REQUIRED_GROWTH_THREADS}`)
+      log(` Grow Threads    : ${GROW_THREADS_TO_USE}`)
+      log(` Max money       : ${ns.formatNumber(NODE_MAX_MONEY)}`)
+      log(` Post Money      : ${ns.formatNumber(NODE_CURRENT_MONEY * GROWTH_MULTIPLIER)}`)
 
-        const HACK_T_CALC = ns.hackAnalyzeThreads(node, NODE_CURRENT_MONEY * P)
-        const MONEY_EARNED = MONEY_REMOVE_PERCENTAGE * HACK_THREADS_TO_USE * NODE_CURRENT_MONEY
+      const MONEY_REMOVE_PERCENTAGE = ns.hackAnalyze(node)
+      const P = 0.9
 
-        log(`= HACK ============================================`)
-        //====================
-        log(` Percentage      : ${MONEY_REMOVE_PERCENTAGE}`)
-        log(` Percentage max  : ${MAX_PERCENTAGE}`)
-        log(` Hack threads    : ${HACK_THREADS_TO_USE}`)
-        log(` Hack threads X  : ${HACK_T_CALC}`)
-        log(` Earning money   : ${ns.formatNumber(MONEY_EARNED)}`)
-        //====================
+      const MAX_PERCENTAGE = MONEY_REMOVE_PERCENTAGE * MAX_HACK_THREADS
+      const HACK_THREADS_TO_USE = Math.min(Math.ceil(P / MONEY_REMOVE_PERCENTAGE), MAX_HACK_THREADS)
 
-        // HWGW
-        const SECURITY_INCREASE_BY_HACK = ns.hackAnalyzeSecurity(HACK_THREADS_TO_USE, node)
-        const HW_THREADS2 = SECURITY_INCREASE_BY_HACK / WEAKEN_REDUCTION
+      const HACK_T_CALC = ns.hackAnalyzeThreads(node, NODE_CURRENT_MONEY * P)
+      const MONEY_EARNED = MONEY_REMOVE_PERCENTAGE * HACK_THREADS_TO_USE * NODE_CURRENT_MONEY
 
-        const e = 1 / (1 - Math.min(0.99, MONEY_REMOVE_PERCENTAGE * HACK_THREADS_TO_USE))
-        const COUNTER_HACK_MONEY_DRAIN_THREADS = Math.ceil(ns.growthAnalyze(node, e, WORKER_CPU_CORES))
-        const SECURITY_INCREASE_BY_GROW = ns.growthAnalyzeSecurity(COUNTER_HACK_MONEY_DRAIN_THREADS)
+      log(`= HACK ============================================`)
+      //====================
+      log(` Percentage      : ${MONEY_REMOVE_PERCENTAGE}`)
+      log(` Percentage max  : ${MAX_PERCENTAGE}`)
+      log(` Hack threads    : ${HACK_THREADS_TO_USE}`)
+      log(` Hack threads X  : ${HACK_T_CALC}`)
+      log(` Earning money   : ${ns.formatNumber(MONEY_EARNED)}`)
+      //====================
 
-        const GW_THREADS = SECURITY_INCREASE_BY_GROW / WEAKEN_REDUCTION
+      // HWGW
+      const SECURITY_INCREASE_BY_HACK = ns.hackAnalyzeSecurity(HACK_THREADS_TO_USE, node)
+      const HW_THREADS2 = SECURITY_INCREASE_BY_HACK / WEAKEN_REDUCTION
 
-        const COUNTER_HACK_THREADS = Math.ceil(HW_THREADS2) || 1
-        const COUNTER_GROW_THREADS = Math.ceil(GW_THREADS) || 1
-        const TOTAL_THREADS =
-          HACK_THREADS_TO_USE + COUNTER_HACK_THREADS + COUNTER_HACK_MONEY_DRAIN_THREADS + COUNTER_GROW_THREADS
-        ns.print(`= HWGW =============================================`)
-        ns.print(` WPT             : ${WEAKEN_REDUCTION}`)
-        ns.print(` HWT             : ${HW_THREADS2}`)
-        ns.print(` GWT             : ${GW_THREADS}`)
-        ns.print(` Sec inc H       : ${SECURITY_INCREASE_BY_HACK}`)
-        ns.print(` Sec inc G       : ${SECURITY_INCREASE_BY_GROW}`)
-        ns.print(` Hack Threads    : ${HACK_THREADS_TO_USE}`)
-        ns.print(` Counter hack    : ${COUNTER_HACK_THREADS}`)
-        ns.print(` Grow money      : ${COUNTER_HACK_MONEY_DRAIN_THREADS}`)
-        ns.print(` Counter grow    : ${COUNTER_GROW_THREADS}`)
-        ns.print(` Total Threads   : ${TOTAL_THREADS}`)
+      const e = 1 / (1 - Math.min(0.99, MONEY_REMOVE_PERCENTAGE * HACK_THREADS_TO_USE))
+      const COUNTER_HACK_MONEY_DRAIN_THREADS = Math.ceil(ns.growthAnalyze(node, e, WORKER_CPU_CORES))
+      const SECURITY_INCREASE_BY_GROW = ns.growthAnalyzeSecurity(COUNTER_HACK_MONEY_DRAIN_THREADS)
 
-        const W1_TIME = WEAKEN_TIME + 300 // Should complete second
-        const HACK_WAIT = W1_TIME - HACK_TIME - 300 // Should complete first
-        const GROW_WAIT = W1_TIME - GROW_TIME + 100 // Should complete third
-        const W2_DELAY = 1000 // Should complete last
+      const GW_THREADS = SECURITY_INCREASE_BY_GROW / WEAKEN_REDUCTION
 
-        const TOTAL_WORK_TIME = W1_TIME + W2_DELAY + 100
+      const COUNTER_HACK_THREADS = Math.ceil(HW_THREADS2) || 1
+      const COUNTER_GROW_THREADS = Math.ceil(GW_THREADS) || 1
+      const TOTAL_THREADS =
+        HACK_THREADS_TO_USE + COUNTER_HACK_THREADS + COUNTER_HACK_MONEY_DRAIN_THREADS + COUNTER_GROW_THREADS
+      ns.print(`= HWGW =============================================`)
+      ns.print(` WPT             : ${WEAKEN_REDUCTION}`)
+      ns.print(` HWT             : ${HW_THREADS2}`)
+      ns.print(` GWT             : ${GW_THREADS}`)
+      ns.print(` Sec inc H       : ${SECURITY_INCREASE_BY_HACK}`)
+      ns.print(` Sec inc G       : ${SECURITY_INCREASE_BY_GROW}`)
+      ns.print(` Hack Threads    : ${HACK_THREADS_TO_USE}`)
+      ns.print(` Counter hack    : ${COUNTER_HACK_THREADS}`)
+      ns.print(` Grow money      : ${COUNTER_HACK_MONEY_DRAIN_THREADS}`)
+      ns.print(` Counter grow    : ${COUNTER_GROW_THREADS}`)
+      ns.print(` Total Threads   : ${TOTAL_THREADS}`)
 
-        // startWork(HACK_TIME, pid, "home", `Hacking ${node} for ${ns.formatNumber(MONEY_EARNED)}`)
+      const W1_TIME = WEAKEN_TIME + 300 // Should complete second
+      const HACK_WAIT = W1_TIME - HACK_TIME - 300 // Should complete first
+      const GROW_WAIT = W1_TIME - GROW_TIME + 100 // Should complete third
+      const W2_DELAY = 1000 // Should complete last
 
-        ns.print(`= TIMER ============================================`)
+      const TOTAL_WORK_TIME = W1_TIME + W2_DELAY + 100
 
-        const s = (time: number, delay: number, w: string, total: number) => {
-          // const _time = Math.ceil(time / 1000)
-          // const _delay = Math.ceil(delay / 1000)
-          // const _total = Math.ceil(total / 1000)
-          const runTime = time + delay
+      // startWork(HACK_TIME, pid, "home", `Hacking ${node} for ${ns.formatNumber(MONEY_EARNED)}`)
 
-          // const S = "|"
-          // const N = "="
-          // const O = " "
+      ns.print(`= TIMER ============================================`)
 
-          const rtString = `[${w} ${runTime.toFixed(2)}s]`
-          return `${rtString} `
+      const s = (time: number, delay: number, w: string, total: number) => {
+        // const _time = Math.ceil(time / 1000)
+        // const _delay = Math.ceil(delay / 1000)
+        // const _total = Math.ceil(total / 1000)
+        const runTime = time + delay
 
-          // const deilayStr = `${O.repeat(_delay)}${S}`
-          // const timeStr = `${N.repeat(_time)}${S}`
-          // const base = `[${w}] ${deilayStr}${timeStr}`.padEnd(_total + 9, " ")
-          // return `${base} `
-        }
+        // const S = "|"
+        // const N = "="
+        // const O = " "
 
-        log(s(W1_TIME, 0, "W", TOTAL_WORK_TIME))
-        log(s(W1_TIME, W2_DELAY, "W", TOTAL_WORK_TIME))
-        log(s(GROW_TIME, GROW_WAIT, "G", TOTAL_WORK_TIME))
-        log(s(HACK_TIME, HACK_WAIT, "H", TOTAL_WORK_TIME))
-        if (iterations < 0 && !ns.isRunning(pid, host)) {
-          log(`.`)
-          log(`.`)
-          // Offset MIN_SECURITY by 5 to have some buffer.
-          if (NODE_CURRENT_SECURITY > NODE_MIN_SECURITY + 2) {
-            const pid = ns.exec("/hacking/x-weaken.js", "home", WEAKEN_THREADS_TO_USE, node, 0)
-            startWork(WEAKEN_TIME, pid, "home", `Weakening ${node} from ${NODE_CURRENT_SECURITY} to ${POST_SECURITY}`)
-            // If the server has less than X% of the max money, we grow.
-          } else if (NODE_CURRENT_MONEY < NODE_MAX_MONEY * 0.7) {
-            const pid = ns.exec("/hacking/x-grow.js", "home", GROW_THREADS_TO_USE, node, 0)
-            startWork(GROW_TIME, pid, "home", `Growing ${node} to ${ns.formatNumber(NODE_MAX_MONEY)}`)
-          } else {
-            if (MONEY_REMOVE_PERCENTAGE === 0) {
-              continue
-            }
+        const rtString = `[${w} ${runTime.toFixed(2)}s]`
+        return `${rtString} `
 
-            ns.exec("/hacking/x-weaken.js", "home", COUNTER_HACK_THREADS, node, 0)
-            const pid = ns.exec("/hacking/x-weaken.js", "home", COUNTER_GROW_THREADS, node, W2_DELAY)
-            ns.exec("/hacking/x-hack.js", "home", HACK_THREADS_TO_USE, node, HACK_WAIT)
-            ns.exec("/hacking/x-grow.js", "home", COUNTER_HACK_MONEY_DRAIN_THREADS, node, GROW_WAIT)
-
-            startWork(TOTAL_WORK_TIME, pid, "home", `Hacking ${node} for ${ns.formatNumber(MONEY_EARNED)}`)
-          }
-        } else {
-          ns.print(`= WORK =============================================`)
-          loopWork(ns)
-        }
+        // const deilayStr = `${O.repeat(_delay)}${S}`
+        // const timeStr = `${N.repeat(_time)}${S}`
+        // const base = `[${w}] ${deilayStr}${timeStr}`.padEnd(_total + 9, " ")
+        // return `${base} `
       }
 
-      // const HACK_THREADS = ns.hackAnalyzeThreads(target, SERVER_CURRENT_MONEY)
+      log(s(W1_TIME, 0, "W", TOTAL_WORK_TIME))
+      log(s(W1_TIME, W2_DELAY, "W", TOTAL_WORK_TIME))
+      log(s(GROW_TIME, GROW_WAIT, "G", TOTAL_WORK_TIME))
+      log(s(HACK_TIME, HACK_WAIT, "H", TOTAL_WORK_TIME))
+      if (iterations < 0 && !ns.isRunning(pid, host)) {
+        log(`.`)
+        log(`.`)
+        // Offset MIN_SECURITY by 5 to have some buffer.
+        if (NODE_CURRENT_SECURITY > NODE_MIN_SECURITY + 2) {
+          const pid = ns.exec("/hacking/x-weaken.js", "home", WEAKEN_THREADS_TO_USE, node, 0)
+          startWork(WEAKEN_TIME, pid, "home", `Weakening ${node} from ${NODE_CURRENT_SECURITY} to ${POST_SECURITY}`)
+          // If the server has less than X% of the max money, we grow.
+        } else if (NODE_CURRENT_MONEY < NODE_MAX_MONEY * 0.7) {
+          const pid = ns.exec("/hacking/x-grow.js", "home", GROW_THREADS_TO_USE, node, 0)
+          startWork(GROW_TIME, pid, "home", `Growing ${node} to ${ns.formatNumber(NODE_MAX_MONEY)}`)
+        } else {
+          if (MONEY_REMOVE_PERCENTAGE === 0) {
+            continue
+          }
 
-      // const targetServer = ns.getServer(target)
+          ns.exec("/hacking/x-weaken.js", "home", COUNTER_HACK_THREADS, node, 0)
+          const pid = ns.exec("/hacking/x-weaken.js", "home", COUNTER_GROW_THREADS, node, W2_DELAY)
+          ns.exec("/hacking/x-hack.js", "home", HACK_THREADS_TO_USE, node, HACK_WAIT)
+          ns.exec("/hacking/x-grow.js", "home", COUNTER_HACK_MONEY_DRAIN_THREADS, node, GROW_WAIT)
+
+          startWork(TOTAL_WORK_TIME, pid, "home", `Hacking ${node} for ${ns.formatNumber(MONEY_EARNED)}`)
+        }
+      } else {
+        ns.print(`= WORK =============================================`)
+        loopWork(ns)
+      }
     }
     await ns.sleep(1000)
   }

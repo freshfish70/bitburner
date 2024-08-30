@@ -32,18 +32,19 @@ const DEFAULT_SERVER_DATABASE: ServerDatabase = {
   servers: [],
 }
 
-const MAX_RAM = 2048
+const MAX = 131072
 
 export async function main(ns: NS) {
   const database = readDatabase<ServerDatabase>(ns, DATABASE_NAME, DEFAULT_SERVER_DATABASE)
   const serverCount = database.servers.length
   const canBuyMore = 25 > serverCount
-  const hasMoney = ns.getServerMoneyAvailable("home") > ns.getPurchasedServerCost(database.initialRam)
+  const moneyAtHome = ns.getServerMoneyAvailable("home")
+  const hasMoneyForServer = moneyAtHome > ns.getPurchasedServerCost(database.initialRam)
 
   // Continuously try to purchase servers until we've reached the maximum
   // amount of servers
   // Check if we have enough money to purchase a server
-  if (canBuyMore && hasMoney) {
+  if (canBuyMore && hasMoneyForServer) {
     // If we have enough money, then:
     //  1. Purchase the server
     //  2. Copy our hacking script onto the newly-purchased server
@@ -53,11 +54,13 @@ export async function main(ns: NS) {
     database.servers.push(hostname)
 
     ns.print("Purchased server: " + hostname + " with " + database.initialRam + "GB of RAM")
-    // ns.scp("/scripts/auto-hack.js", hostname)
-    // ns.exec("/scripts/auto-hack.js", hostname, 3)
   }
 
-  if (!canBuyMore && database.currentMaxRam <= MAX_RAM) {
+  const totalCostForNextUpgrade =
+    ns.getPurchasedServerUpgradeCost(database.servers[0], database.currentMaxRam) * serverCount
+  const hasMoneyForUpgrade = moneyAtHome * 0.2 > totalCostForNextUpgrade
+
+  if (!canBuyMore && hasMoneyForUpgrade && database.currentMaxRam <= MAX) {
     if (database.initialRam == database.currentMaxRam) {
       // Must allways double the ram
       database.currentMaxRam = database.currentMaxRam * 2
