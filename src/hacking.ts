@@ -5,63 +5,63 @@ const TARGETS = [
   // "nwo",
   // "kuai-gong",
   // "clarkinc",
-  "b-and-a",
-  "4sigma",
-  "blade",
-  "omnitek",
-  "global-pharm",
-  "deltaone",
-  "zeus-med",
-  "nova-med",
-  "univ-energy",
-  "unitalife",
-  "zb-institute",
-  "stormtech",
-  "aerocorp",
-  "omnia",
-  "icarus",
-  "zb-def",
-  "powerhouse-fitness",
-  "titan-labs",
-  "defcomm",
-  "taiyang-digital",
-  "solaris",
-  "vitalife",
-  "galactic-cyber",
-  "infocomm",
-  "applied-energetics",
-  "lexo-corp",
-  "alpha-ent",
-  "rho-construction",
-  "helios",
-  "microdyne",
-  "syscore",
-  "catalyst",
-  "snap-fitness",
-  "summit-uni",
-  "aevum-police",
-  "netlink",
-  "millenium-fitness",
-  //
-  "computek",
-  "rothman-uni",
-  "the-hub",
-  "johnson-ortho",
-  "omega-net",
-  "crush-fitness",
-  "silver-helix",
-  "phantasy",
-  "iron-gym",
-  "max-hardware",
-  "zer0",
-  "neo-net",
-  "harakiri-sushi",
-  "hong-fang-tea",
-  "nectar-net",
-  "joesguns",
+  // "b-and-a",
+  // "4sigma",
+  // "blade",
+  // "omnitek",
+  // "global-pharm",
+  // "deltaone",
+  // "zeus-med",
+  // "nova-med",
+  // "univ-energy",
+  // "unitalife",
+  // "zb-institute",
+  // "stormtech",
+  // "aerocorp",
+  // "omnia",
+  // "icarus",
+  // "zb-def",
+  // "powerhouse-fitness",
+  // "titan-labs",
+  // "defcomm",
+  // "taiyang-digital",
+  // "solaris",
+  // "vitalife",
+  // "galactic-cyber",
+  // "infocomm",
+  // "applied-energetics",
+  // "lexo-corp",
+  // "alpha-ent",
+  // "rho-construction",
+  // "helios",
+  // "microdyne",
+  // "syscore",
+  // "catalyst",
+  // "snap-fitness",
+  // "summit-uni",
+  // "aevum-police",
+  // "netlink",
+  // "millenium-fitness",
+  // //
+  // "computek",
+  // "rothman-uni",
+  // "the-hub",
+  // "johnson-ortho",
+  // "omega-net",
+  // "crush-fitness",
+  // "silver-helix",
+  // "phantasy",
+  // "iron-gym",
+  // "max-hardware",
+  // "zer0",
+  // "neo-net",
+  // "harakiri-sushi",
+  // "hong-fang-tea",
+  // "nectar-net",
+  // "joesguns",
   "sigma-cosmetics",
   "foodnstuff",
-  "fulcrumassets",
+  // "fulcrumassets",
   "n00dles",
 ]
 
@@ -121,6 +121,7 @@ type TableRow = {
   threads: string | number
   maxThreads: string | number
   timeLeft: string | number
+  task: string
 }
 
 type RowKey = keyof TableRow
@@ -135,6 +136,7 @@ const HEADERS: TableHeader = [
   ["threads", "THREADS", 12],
   ["maxThreads", "MAX THREADS", 12],
   ["timeLeft", "TIME LEFT", 12],
+  ["task", "TASK", 12],
 ]
 
 const logTableHeader = (ns: NS) => {
@@ -158,7 +160,15 @@ export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL")
   ns.clearLog()
 
-  WORK_SERVERS = [ns.getPurchasedServers()[0]]
+  const [reverse] = ns.args
+
+  if (reverse) {
+    TARGETS.reverse()
+  }
+
+  // WORK_SERVERS = [ns.getPurchasedServers()[0]]
+  WORK_SERVERS = ["home", ...ns.getPurchasedServers()]
+  console.log(WORK_SERVERS)
 
   for (const server of WORK_SERVERS) {
     ns.scp(["/hacking/x-weaken.js", "/hacking/x-grow.js", "/hacking/x-hack.js"], server)
@@ -170,6 +180,10 @@ export async function main(ns: NS): Promise<void> {
     logTableHeader(ns)
 
     for (const NODE of TARGETS) {
+      if (!ns.hasRootAccess(NODE)) {
+        continue
+      }
+
       const NODE_CURRENT_MONEY = Math.max(ns.getServerMoneyAvailable(NODE), 1)
       const NODE_MAX_MONEY = ns.getServerMaxMoney(NODE)
 
@@ -181,21 +195,23 @@ export async function main(ns: NS): Promise<void> {
       const GROW_TIME = Math.ceil(ns.getGrowTime(NODE))
       const WEAKEN_TIME = Math.ceil(ns.getWeakenTime(NODE))
 
-      let nodeHasWorkerAttached = false
+      let currentWorker = ""
 
       for (const WORK_SERVER of WORK_SERVERS) {
-        if (nodeHasWorkerAttached) {
-          // If we already have a worker attached to the node, we skip the rest of the workers.
-          break
-        }
-
         const WORK_NODE_NAME = `${WORK_SERVER}_${NODE}`
 
         const work = getWork(WORK_NODE_NAME)
         const pid = work?.pid || 0
         const workIsInProgress = ns.isRunning(pid, work?.host ?? "home")
 
-        nodeHasWorkerAttached = workIsInProgress
+        if (workIsInProgress) {
+          currentWorker = WORK_SERVER
+        }
+
+        if (currentWorker && currentWorker !== WORK_SERVER) {
+          // If we already have a worker attached to the node, we skip the rest of the workers.
+          break
+        }
 
         const WORKER = ns.getServer(WORK_SERVER)
         const WORKER_RAM = WORKER.maxRam
@@ -240,9 +256,7 @@ export async function main(ns: NS): Promise<void> {
         const TOTAL_THREADS =
           HACK_THREADS_TO_USE + COUNTER_HACK_THREADS + COUNTER_HACK_MONEY_DRAIN_THREADS + COUNTER_GROW_THREADS
 
-        if (TOTAL_THREADS > WORKER_FREE_RAM) {
-          continue
-        }
+        const HAS_RAM_FOR_WORK = TOTAL_THREADS <= WORKER_FREE_RAM
 
         const W1_TIME = WEAKEN_TIME + 300 // Should complete second
         const HACK_WAIT = W1_TIME - HACK_TIME - 300 // Should complete first
@@ -251,7 +265,9 @@ export async function main(ns: NS): Promise<void> {
 
         const TOTAL_WORK_TIME = W1_TIME + W2_DELAY + 100
 
-        if (!workIsInProgress) {
+        if (!workIsInProgress && HAS_RAM_FOR_WORK) {
+          currentWorker = WORK_SERVER
+
           logTable(ns, {
             node: NODE,
             security: C_SECURITY(NODE_CURRENT_SECURITY),
@@ -261,29 +277,18 @@ export async function main(ns: NS): Promise<void> {
             threads: TOTAL_THREADS,
             maxThreads: WORKER_FREE_RAM,
             timeLeft: 0,
+            task: "",
           })
 
           endWork(WORK_NODE_NAME)
           // Offset MIN_SECURITY by 5 to have some buffer.
           if (NODE_CURRENT_SECURITY > NODE_MIN_SECURITY + 2) {
             const pid = ns.exec("/hacking/x-weaken.js", WORK_SERVER, WEAKEN_THREADS_TO_USE, NODE, 0)
-            startWork(
-              WORK_NODE_NAME,
-              WEAKEN_TIME,
-              pid,
-              WORK_SERVER,
-              `Weakening ${NODE} from ${NODE_CURRENT_SECURITY} to ${POST_SECURITY}`,
-            )
+            startWork(WORK_NODE_NAME, WEAKEN_TIME, pid, WORK_SERVER, `WEAKEN`)
             // If the server has less than X% of the max money, we grow.
           } else if (NODE_CURRENT_MONEY < NODE_MAX_MONEY * 0.7) {
             const pid = ns.exec("/hacking/x-grow.js", WORK_SERVER, GROW_THREADS_TO_USE, NODE, 0)
-            startWork(
-              WORK_NODE_NAME,
-              GROW_TIME,
-              pid,
-              WORK_SERVER,
-              `Growing ${NODE} to ${ns.formatNumber(NODE_MAX_MONEY)}`,
-            )
+            startWork(WORK_NODE_NAME, GROW_TIME, pid, WORK_SERVER, `GROW`)
           } else {
             if (MONEY_REMOVE_PERCENTAGE === 0) {
               continue
@@ -294,15 +299,9 @@ export async function main(ns: NS): Promise<void> {
             ns.exec("/hacking/x-hack.js", WORK_SERVER, HACK_THREADS_TO_USE, NODE, HACK_WAIT)
             ns.exec("/hacking/x-grow.js", WORK_SERVER, COUNTER_HACK_MONEY_DRAIN_THREADS, NODE, GROW_WAIT)
 
-            startWork(
-              WORK_NODE_NAME,
-              TOTAL_WORK_TIME,
-              pid,
-              WORK_SERVER,
-              `Hacking ${NODE} for ${ns.formatNumber(MONEY_EARNED)}`,
-            )
+            startWork(WORK_NODE_NAME, TOTAL_WORK_TIME, pid, WORK_SERVER, `BATCH`)
           }
-        } else {
+        } else if (workIsInProgress) {
           const timeLeft = Math.ceil(Math.max((work?.doneAt ?? 0) - Date.now(), 0) / 1000)
 
           logTable(ns, {
@@ -314,6 +313,7 @@ export async function main(ns: NS): Promise<void> {
             threads: TOTAL_THREADS,
             maxThreads: WORKER_FREE_RAM,
             timeLeft,
+            task: work?.task ?? "",
           })
         }
       }

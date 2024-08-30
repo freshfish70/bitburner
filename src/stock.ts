@@ -70,6 +70,7 @@ export async function main(ns: NS): Promise<void> {
       const company = STOCK_API.getOrganization(symbol)
 
       const ask = STOCK_API.getAskPrice(symbol)
+      // Sell price...
       const bid = STOCK_API.getBidPrice(symbol)
       const price = STOCK_API.getPrice(symbol) // WSE and TIX
       const forcast = STOCK_API.getForecast(symbol) // 4SIGMA => returns as 0.XXX

@@ -14,7 +14,7 @@ const addAlpineJS = () => {
     // eslint-disable-next-line @typescript-eslint/no-extra-semi
   })
 
-  const script = document.createElement("script")
+  const script = DOM.createElement("script")
   script.src = "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
   script.defer = true
   script.id = ALPINE_ID

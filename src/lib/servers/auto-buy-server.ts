@@ -32,12 +32,14 @@ const DEFAULT_SERVER_DATABASE: ServerDatabase = {
   servers: [],
 }
 
-const MAX = 131072
+const RAM = [8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072]
+
+const MAX = RAM[6]
 
 export async function main(ns: NS) {
   const database = readDatabase<ServerDatabase>(ns, DATABASE_NAME, DEFAULT_SERVER_DATABASE)
   const serverCount = database.servers.length
-  const canBuyMore = 25 > serverCount
+  const canBuyMore = 2 > serverCount
   const moneyAtHome = ns.getServerMoneyAvailable("home")
   const hasMoneyForServer = moneyAtHome > ns.getPurchasedServerCost(database.initialRam)
 
@@ -56,11 +58,7 @@ export async function main(ns: NS) {
     ns.print("Purchased server: " + hostname + " with " + database.initialRam + "GB of RAM")
   }
 
-  const totalCostForNextUpgrade =
-    ns.getPurchasedServerUpgradeCost(database.servers[0], database.currentMaxRam) * serverCount
-  const hasMoneyForUpgrade = moneyAtHome * 0.2 > totalCostForNextUpgrade
-
-  if (!canBuyMore && hasMoneyForUpgrade && database.currentMaxRam <= MAX) {
+  if (!canBuyMore && database.currentMaxRam <= MAX) {
     if (database.initialRam == database.currentMaxRam) {
       // Must allways double the ram
       database.currentMaxRam = database.currentMaxRam * 2

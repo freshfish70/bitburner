@@ -4,3 +4,4 @@
 - Buy tor browser from Alpha net.
   - connect darkweb
   - buy all the programs.
+- Must have at least 1 augmentation to get Favor for a Faction => 150 favor give donation to faction.

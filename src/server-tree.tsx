@@ -1,6 +1,7 @@
 import { NS, Player, Server } from "@ns"
 import React from "lib/react"
 import { FC } from "react"
+import { SERVER_PREFIX } from "./lib/constants/servers"
 import { getServerTree, ServerMap } from "./lib/servers/get-all-servers"
 import { IS_MY_MACHINE } from "./lib/servers/helpers"
 
@@ -32,6 +33,7 @@ type ServerEntryProps = {
   player: Player
   server: Server
   contracts: number
+  files: string[]
   path: string
   backdoorPath: string
   level: number
@@ -72,6 +74,8 @@ const ServerEntry: FC<ServerEntryProps> = (props) => {
 
   const contracts = new Array(props.contracts).fill("📜").join(" ")
 
+  if (isOwnMachine) props.files = []
+
   return (
     <span>
       <a className={nodeClasses} onClick={() => clickHandler(props.path)}>
@@ -84,6 +88,15 @@ const ServerEntry: FC<ServerEntryProps> = (props) => {
         </a>
       )}
       {contracts}
+      {props.files?.length > 0 &&
+        props.files.map((f) => (
+          <a
+            onClick={() => clickHandler(`${props.path};cat ${f}`)}
+            className={`text-gray-400 mr-2 hover:underline cursor-pointer`}
+          >
+            {f}
+          </a>
+        ))}
     </span>
   )
 }
@@ -102,6 +115,7 @@ export async function main(ns: NS) {
     return (
       <>
         {Object.entries(servers).map(([host, { server, connections }], idx) => {
+          if (server.hostname.includes(SERVER_PREFIX)) return null
           const isRoot = host === "home"
           const isTopParent = level === 1
           const isLast = idx === Object.keys(servers).length - 1 && !isRoot
@@ -150,6 +164,7 @@ export async function main(ns: NS) {
                 server={server}
                 player={player}
                 level={level}
+                files={files}
                 path={newPath}
                 contracts={contracts}
                 backdoorPath={`${newPath};backdoor`}
