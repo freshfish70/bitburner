@@ -21,80 +21,89 @@ const readDatabase = <T>(ns: NS, file: string, initialDatabase: T) => {
 }
 
 type ServerDatabase = {
-  initialRam: number
-  currentMaxRam: number
-  servers: string[]
-}
-
-const DEFAULT_SERVER_DATABASE: ServerDatabase = {
-  initialRam: 8,
-  currentMaxRam: 8,
-  servers: [],
+  servers: {
+    hostname: string
+    ram: number
+    purchased: boolean
+  }[]
 }
 
 const RAM = [8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072]
+const MAX = RAM[10]
+const MAX_SERVERS = 2
 
-const MAX = RAM[6]
+const generateServers = new Array(25).fill(0).map((_, i) => ({
+  hostname: "pserv-" + i,
+  ram: RAM[0],
+  purchased: false,
+}))
+
+const DEFAULT_SERVER_DATABASE: ServerDatabase = {
+  servers: generateServers,
+}
 
 export async function main(ns: NS) {
   const database = readDatabase<ServerDatabase>(ns, DATABASE_NAME, DEFAULT_SERVER_DATABASE)
-  const serverCount = database.servers.length
-  const canBuyMore = 2 > serverCount
+  const serverCount = database.servers.filter((x) => x.purchased).length
+  const canBuyMore = serverCount < MAX_SERVERS
   const moneyAtHome = ns.getServerMoneyAvailable("home")
-  const hasMoneyForServer = moneyAtHome > ns.getPurchasedServerCost(database.initialRam)
 
-  // Continuously try to purchase servers until we've reached the maximum
-  // amount of servers
-  // Check if we have enough money to purchase a server
-  if (canBuyMore && hasMoneyForServer) {
-    // If we have enough money, then:
-    //  1. Purchase the server
-    //  2. Copy our hacking script onto the newly-purchased server
-    //  3. Run our hacking script on the newly-purchased server with 3 threads
-    //  4. Increment our iterator to indicate that we've bought a new server
-    const hostname = ns.purchaseServer("pserv-" + serverCount + 1, database.initialRam)
-    database.servers.push(hostname)
+  let changes = 0
 
-    ns.print("Purchased server: " + hostname + " with " + database.initialRam + "GB of RAM")
+  // Continuously try to purchase servers until we've reached the maximum amount of servers
+  if (canBuyMore) {
+    const hasMoneyForServer = moneyAtHome > ns.getPurchasedServerCost(RAM[0])
+    const server = database.servers.find((x) => !x.purchased)
+    if (server && hasMoneyForServer) {
+      const hostname = ns.purchaseServer(server.hostname, server.ram)
+      if (hostname) {
+        server.purchased = true
+        ns.print("Purchased server: " + hostname + " with " + server.ram + "GB of RAM")
+        ns.scp(["/hacking/x-weaken.js", "/hacking/x-grow.js", "/hacking/x-hack.js"], hostname)
+        changes++
+      }
+    }
   }
 
-  if (!canBuyMore && database.currentMaxRam <= MAX) {
-    if (database.initialRam == database.currentMaxRam) {
-      // Must allways double the ram
-      database.currentMaxRam = database.currentMaxRam * 2
-    }
-    // Start upgrading servers...
-    const allIsSameLevel = []
+  if (!canBuyMore) {
     for (const server of database.servers) {
-      const upgradeCost = ns.getPurchasedServerUpgradeCost(server, database.currentMaxRam)
+      const CURRENT_RAM_INDEX = RAM.indexOf(server.ram)
+      const NEXT_RAM_INDEX = Math.min(CURRENT_RAM_INDEX + 1, RAM.length - 1)
 
-      // If the ram on the server is the same as the current max ram, then we don't need to upgrade it
-      // and price will be Infinity or <= 0
-      if (upgradeCost < 1 || upgradeCost == Infinity) {
-        allIsSameLevel.push(true)
+      if (NEXT_RAM_INDEX >= RAM.length - 1) {
         continue
       }
 
-      if (upgradeCost < ns.getServerMoneyAvailable("home") * 0.1) {
-        ns.upgradePurchasedServer(server, database.currentMaxRam)
-        ns.print("Upgrading server: " + server + " with " + database.currentMaxRam + "GB of RAM")
-        allIsSameLevel.push(true)
-      } else {
-        allIsSameLevel.push(false)
+      const NEW_RAM = RAM[NEXT_RAM_INDEX]
+      if (NEW_RAM > MAX) {
+        continue
       }
-    }
 
-    // If all servers are at the same level, then double the ram
-    // for the next upgrade
-    if (allIsSameLevel.every((x) => x)) {
-      database.currentMaxRam = database.currentMaxRam * 2
+      const UPGRADE_COST = ns.getPurchasedServerUpgradeCost(server.hostname, NEW_RAM)
+      const CURRENT_SPEND_LIMIT = ns.getServerMoneyAvailable("home") * 0.1
+
+      // If the ram on the server is the same as the current max ram, then we don't need to upgrade it
+      // and price will be Infinity or <= 0
+
+      if (UPGRADE_COST < CURRENT_SPEND_LIMIT) {
+        const bought = ns.upgradePurchasedServer(server.hostname, NEW_RAM)
+        if (bought) {
+          ns.print("Upgrading server: " + server.hostname + " with " + NEW_RAM + "GB of RAM")
+          server.ram = NEW_RAM
+          changes++
+        }
+      }
     }
   }
 
-  //Make the script wait for a second before looping again.
-  //Removing this line will cause an infinite loop and crash the game.
-  writeDatabase(ns, DATABASE_NAME, database)
-  await ns.sleep(200)
+  if (changes > 0) {
+    writeDatabase(ns, DATABASE_NAME, database)
+  }
+}
+
+export const getWorkServers = (ns: NS) => {
+  const database = readDatabase<ServerDatabase>(ns, DATABASE_NAME, DEFAULT_SERVER_DATABASE)
+  return database.servers.filter((x) => x.purchased)
 }
 
 export const autoBuyServer = main

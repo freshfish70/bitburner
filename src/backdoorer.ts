@@ -1,20 +1,7 @@
 import { NS } from "@ns"
 import { getServerTree, ServerMap } from "./lib/servers/get-all-servers"
 import { IS_MY_MACHINE } from "./lib/servers/helpers"
-import { DOM } from "./lib/ui/helpers"
-
-const terminal = DOM.getElementById("terminal")
-const terminalInsert = (html: string) =>
-  DOM.getElementById("terminal")?.insertAdjacentHTML("beforeend", `<li>${html}</li>`)
-const terminalInput = DOM.getElementById("terminal-input") as HTMLInputElement
-const terminalEventHandlerKey = Object.keys(terminalInput)[1]
-
-const setNavCommand = async (inputValue: string) => {
-  terminalInput.value = inputValue
-  ;(terminalInput as any)[terminalEventHandlerKey].onChange({ target: terminalInput })
-  terminalInput.focus()
-  await (terminalInput as any)[terminalEventHandlerKey].onKeyDown({ key: "Enter", preventDefault: () => 0 })
-}
+import { executeCommandInTerminal, getTerminal } from "./lib/ui/terminal"
 
 export async function main(ns: NS) {
   ns.tail()
@@ -29,6 +16,7 @@ export async function main(ns: NS) {
     const servers = getServerTree(ns)
 
     const isBackdooring = Boolean(target)
+    const terminal = getTerminal()
     const isBackdoored = !!Array.from(terminal?.querySelectorAll("li") ?? []).find((x) =>
       x.textContent?.includes(`'${target}' succ`),
     )
@@ -78,8 +66,7 @@ export async function main(ns: NS) {
     const connectionString = findServerToBackdoor(servers)
     if (connectionString) {
       target = connectionString.split(" ").pop()?.replace(";backdoor", "") ?? ""
-      terminalInsert(connectionString)
-      await setNavCommand(connectionString)
+      await executeCommandInTerminal(connectionString)
     }
 
     await ns.asleep(2000)

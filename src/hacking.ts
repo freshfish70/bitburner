@@ -43,25 +43,25 @@ const TARGETS = [
   // "netlink",
   // "millenium-fitness",
   // //
-  // "computek",
-  // "rothman-uni",
-  // "the-hub",
-  // "johnson-ortho",
-  // "omega-net",
-  // "crush-fitness",
-  // "silver-helix",
-  // "phantasy",
-  // "iron-gym",
-  // "max-hardware",
-  // "zer0",
-  // "neo-net",
-  // "harakiri-sushi",
-  // "hong-fang-tea",
-  // "nectar-net",
-  // "joesguns",
+  "computek",
+  "rothman-uni",
+  "the-hub",
+  "johnson-ortho",
+  "omega-net",
+  "crush-fitness",
+  "silver-helix",
+  "phantasy",
+  "iron-gym",
+  "max-hardware",
+  "zer0",
+  "neo-net",
+  "harakiri-sushi",
+  "hong-fang-tea",
+  "nectar-net",
+  "joesguns",
+  // "fulcrumassets",
   "sigma-cosmetics",
   "foodnstuff",
-  // "fulcrumassets",
   "n00dles",
 ]
 
@@ -73,7 +73,8 @@ type Work = {
   pid: number
   host: string
   task: string
-  ms: number
+  threads: number
+  workTime: number
   doneAt: number
 }
 const WORK_MAP = new Map<string, Work>()
@@ -92,22 +93,26 @@ const getThreadsToUse = (factor: number, reduction: number, maxThreads: number) 
   return Math.min(base, maxThreads)
 }
 
-const startWork = (key: string, _ms: number, _pid: number, _host: string, _task: string) => {
-  WORK_MAP.set(key, {
-    ms: _ms,
-    pid: _pid,
-    host: _host,
-    task: _task,
-    doneAt: Date.now() + _ms,
+type StartWork = {
+  pid: number
+  host: string
+  task: string
+  workTime: number
+  threads: number
+}
+const startWorkOnTarget = (target: string, work: StartWork) => {
+  WORK_MAP.set(target, {
+    ...work,
+    doneAt: Date.now() + work.workTime,
   })
 }
 
-const endWork = (key: string) => {
-  WORK_MAP.delete(key)
+const endWorkForTarget = (target: string) => {
+  WORK_MAP.delete(target)
 }
 
-const getWork = (key: string) => {
-  return WORK_MAP.get(key)
+const getWorkForTarget = (target: string) => {
+  return WORK_MAP.get(target)
 }
 
 const C_SECURITY = (v: string | number) => (+v).toFixed(1).toString()
@@ -118,8 +123,9 @@ type TableRow = {
   money: string | number
   earns: string | number
   worker: string
-  threads: string | number
-  maxThreads: string | number
+  taskThreads: string | number
+  threadsLeft: string | number
+  serverThreads: string | number
   timeLeft: string | number
   task: string
 }
@@ -133,8 +139,9 @@ const HEADERS: TableHeader = [
   ["security", "SECURITY", 10],
   ["money", "MONEY", 12],
   ["earns", "EARNS", 12],
-  ["threads", "THREADS", 12],
-  ["maxThreads", "MAX THREADS", 12],
+  ["taskThreads", "TH TASK", 12],
+  ["threadsLeft", "TH LEFT", 12],
+  ["serverThreads", "TH SERVER", 12],
   ["timeLeft", "TIME LEFT", 12],
   ["task", "TASK", 12],
 ]
@@ -166,10 +173,7 @@ export async function main(ns: NS): Promise<void> {
     TARGETS.reverse()
   }
 
-  // WORK_SERVERS = [ns.getPurchasedServers()[0]]
-  WORK_SERVERS = ["home", ...ns.getPurchasedServers()]
-  console.log(WORK_SERVERS)
-
+  WORK_SERVERS = [ns.getPurchasedServers()[0]]
   for (const server of WORK_SERVERS) {
     ns.scp(["/hacking/x-weaken.js", "/hacking/x-grow.js", "/hacking/x-hack.js"], server)
   }
@@ -178,6 +182,7 @@ export async function main(ns: NS): Promise<void> {
   while (T) {
     ns.clearLog()
     logTableHeader(ns)
+    WORK_SERVERS = ["home", ...ns.getPurchasedServers()]
 
     for (const NODE of TARGETS) {
       if (!ns.hasRootAccess(NODE)) {
@@ -195,22 +200,22 @@ export async function main(ns: NS): Promise<void> {
       const GROW_TIME = Math.ceil(ns.getGrowTime(NODE))
       const WEAKEN_TIME = Math.ceil(ns.getWeakenTime(NODE))
 
-      let currentWorker = ""
-
       for (const WORK_SERVER of WORK_SERVERS) {
-        const WORK_NODE_NAME = `${WORK_SERVER}_${NODE}`
+        const work = getWorkForTarget(NODE)
 
-        const work = getWork(WORK_NODE_NAME)
-        const pid = work?.pid || 0
-        const workIsInProgress = ns.isRunning(pid, work?.host ?? "home")
+        let workIsInProgress = false
+        if (work) {
+          const pid = work.pid
 
-        if (workIsInProgress) {
-          currentWorker = WORK_SERVER
-        }
+          workIsInProgress = ns.isRunning(pid, work.host)
 
-        if (currentWorker && currentWorker !== WORK_SERVER) {
-          // If we already have a worker attached to the node, we skip the rest of the workers.
-          break
+          if (workIsInProgress && work.host !== WORK_SERVER) {
+            continue
+          }
+
+          if (!workIsInProgress) {
+            endWorkForTarget(NODE)
+          }
         }
 
         const WORKER = ns.getServer(WORK_SERVER)
@@ -264,31 +269,35 @@ export async function main(ns: NS): Promise<void> {
         const W2_DELAY = 1000 // Should complete last
 
         const TOTAL_WORK_TIME = W1_TIME + W2_DELAY + 100
+        console.table({
+          WORK_SERVER,
+          WORKER_FREE_RAM,
+          TOTAL_THREADS,
+          HAS_RAM_FOR_WORK,
+          WORKER_USED_RAM,
+        })
 
         if (!workIsInProgress && HAS_RAM_FOR_WORK) {
-          currentWorker = WORK_SERVER
-
-          logTable(ns, {
-            node: NODE,
-            security: C_SECURITY(NODE_CURRENT_SECURITY),
-            money: ns.formatNumber(NODE_CURRENT_MONEY),
-            earns: 0,
-            worker: WORK_SERVER,
-            threads: TOTAL_THREADS,
-            maxThreads: WORKER_FREE_RAM,
-            timeLeft: 0,
-            task: "",
-          })
-
-          endWork(WORK_NODE_NAME)
           // Offset MIN_SECURITY by 5 to have some buffer.
           if (NODE_CURRENT_SECURITY > NODE_MIN_SECURITY + 2) {
             const pid = ns.exec("/hacking/x-weaken.js", WORK_SERVER, WEAKEN_THREADS_TO_USE, NODE, 0)
-            startWork(WORK_NODE_NAME, WEAKEN_TIME, pid, WORK_SERVER, `WEAKEN`)
+            startWorkOnTarget(NODE, {
+              pid,
+              task: `WEAKEN`,
+              host: WORK_SERVER,
+              workTime: WEAKEN_TIME,
+              threads: WEAKEN_THREADS_TO_USE,
+            })
             // If the server has less than X% of the max money, we grow.
           } else if (NODE_CURRENT_MONEY < NODE_MAX_MONEY * 0.7) {
             const pid = ns.exec("/hacking/x-grow.js", WORK_SERVER, GROW_THREADS_TO_USE, NODE, 0)
-            startWork(WORK_NODE_NAME, GROW_TIME, pid, WORK_SERVER, `GROW`)
+            startWorkOnTarget(NODE, {
+              pid,
+              task: `GROW`,
+              host: WORK_SERVER,
+              workTime: GROW_TIME,
+              threads: GROW_THREADS_TO_USE,
+            })
           } else {
             if (MONEY_REMOVE_PERCENTAGE === 0) {
               continue
@@ -298,10 +307,16 @@ export async function main(ns: NS): Promise<void> {
             const pid = ns.exec("/hacking/x-weaken.js", WORK_SERVER, COUNTER_GROW_THREADS, NODE, W2_DELAY)
             ns.exec("/hacking/x-hack.js", WORK_SERVER, HACK_THREADS_TO_USE, NODE, HACK_WAIT)
             ns.exec("/hacking/x-grow.js", WORK_SERVER, COUNTER_HACK_MONEY_DRAIN_THREADS, NODE, GROW_WAIT)
-
-            startWork(WORK_NODE_NAME, TOTAL_WORK_TIME, pid, WORK_SERVER, `BATCH`)
+            // TOTAL_WORK_TIME, pid, WORK_SERVER, `BATCH`
+            startWorkOnTarget(NODE, {
+              pid,
+              task: `BATCH`,
+              host: WORK_SERVER,
+              workTime: TOTAL_WORK_TIME,
+              threads: TOTAL_THREADS,
+            })
           }
-        } else if (workIsInProgress) {
+        } else if (workIsInProgress && work) {
           const timeLeft = Math.ceil(Math.max((work?.doneAt ?? 0) - Date.now(), 0) / 1000)
 
           logTable(ns, {
@@ -310,10 +325,11 @@ export async function main(ns: NS): Promise<void> {
             money: ns.formatNumber(NODE_CURRENT_MONEY),
             earns: ns.formatNumber(MONEY_EARNED),
             worker: WORK_SERVER,
-            threads: TOTAL_THREADS,
-            maxThreads: WORKER_FREE_RAM,
+            taskThreads: work.threads,
+            threadsLeft: Math.round(WORKER_FREE_RAM),
+            serverThreads: WORKER_RAM,
             timeLeft,
-            task: work?.task ?? "",
+            task: work.task,
           })
         }
       }

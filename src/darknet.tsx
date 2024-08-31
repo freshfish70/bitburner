@@ -1,28 +1,5 @@
 import { NS } from "@ns"
-
-const doc = eval("document")
-const getTerminalInput = () => {
-  return doc.getElementById("terminal-input") as HTMLInputElement
-}
-
-const getTerminalReactInput = () => {
-  const terminalInput = getTerminalInput()
-  const key = Object.keys(terminalInput)[1]
-  return terminalInput[key as keyof typeof terminalInput] as unknown as {
-    value: string
-    onChange: (e: unknown) => void
-    onKeyDown: (e: unknown) => Promise<void>
-  }
-}
-
-const clickHandler = async (value: string) => {
-  const terminalInput = getTerminalInput()
-  terminalInput.value = value
-  getTerminalReactInput().onChange({ target: terminalInput })
-  terminalInput.focus()
-  await getTerminalReactInput().onKeyDown({ key: "Space", preventDefault: () => 0 })
-  await getTerminalReactInput().onKeyDown({ key: "Enter", preventDefault: () => 0 })
-}
+import { executeCommandInTerminal } from "./lib/ui/terminal"
 
 const PROGRAMS = {
   "BruteSSH.exe": 500000,
@@ -51,7 +28,7 @@ export async function main(ns: NS) {
         continue
       }
       ns.tprint(`Buying ${program}`)
-      await clickHandler(`connect darknet;buy ${program};connect home`)
+      await executeCommandInTerminal(`connect darknet;buy ${program};connect home`)
     }
   }
 }
